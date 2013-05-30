@@ -9,11 +9,15 @@ import (
 	"code.google.com/p/biogo/alphabet"
 
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
 
-var ErrBadIdentifer = errors.New("illumina: unable to parse identifier")
+var (
+	ErrBadIdentifer = errors.New("illumina: unable to parse identifier")
+	ErrBadTag       = errors.New("illumina: illegal multiplex tag")
+)
 
 type Interface interface {
 	Name() string
@@ -66,6 +70,9 @@ type Metadata struct {
 	Multiplex   Multiplex  // Multiplexing information.
 }
 
+// Parse parses the name and description fields of an Illumina identifier represented by r.
+// An error is returned if the input does not conform to the pre-Casava or Casava identifier
+// formats.
 func Parse(r Interface) (Metadata, error) {
 	name := r.Name()
 	if strings.Index(name, "#") >= 0 {
@@ -140,7 +147,7 @@ func preCasava(name string) (m Metadata, err error) {
 			m.Multiplex.Tag = f[5]
 			m.Multiplex.Index = -1
 		} else {
-			panic(err)
+			panic(fmt.Errorf("illumina: illegal multiplex tag: %s", err))
 		}
 	}
 	if len(f) == 7 {
@@ -168,6 +175,9 @@ func casava(name, desc string) (m Metadata, err error) {
 	df := strings.FieldsFunc(desc, casavaSep)
 	if !(len(nf) == 7 && (len(df) == 4 || desc == "")) {
 		return Metadata{}, ErrBadIdentifer
+	}
+	if len(df) == 4 && !tagOk(df[3]) {
+		return Metadata{}, ErrBadTag
 	}
 	defer func() {
 		r := recover()
