@@ -6,12 +6,12 @@
 package illumina
 
 import (
-	"code.google.com/p/biogo/alphabet"
-
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/biogo/biogo/alphabet"
 )
 
 var (
