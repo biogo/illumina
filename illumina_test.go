@@ -7,6 +7,9 @@ package illumina
 import (
 	"testing"
 
+	"github.com/biogo/biogo/alphabet"
+	"github.com/biogo/biogo/feat"
+
 	"gopkg.in/check.v1"
 )
 
@@ -23,6 +26,24 @@ type tester struct {
 
 func (t tester) Name() string        { return t.name }
 func (t tester) Description() string { return t.desc }
+
+type alphaTester struct {
+	name  string
+	desc  string
+	alpha alphabet.Alphabet
+}
+
+func (t alphaTester) Name() string                { return t.name }
+func (t alphaTester) Description() string         { return t.desc }
+func (t alphaTester) Alphabet() alphabet.Alphabet { return t.alpha }
+
+var underscored = alphabet.MustComplement(alphabet.NewComplementor(
+	"acgt_",
+	feat.DNA,
+	alphabet.MustPair(alphabet.NewPairing("acgtnxACGTNX-_", "tgcanxTGCANX-_")),
+	'-', 'n',
+	!alphabet.CaseSensitive,
+))
 
 func (s *S) TestParse(c *check.C) {
 	for i, t := range []struct {
@@ -85,6 +106,20 @@ func (s *S) TestParse(c *check.C) {
 				BadRead:     false,
 				ControlBits: -1,
 				Multiplex:   Multiplex{Index: -1},
+			},
+		},
+		{ // This test is for tags where unusual tag characters have been used.
+			alphaTester{"FCC4T93ACXX:2:1101:1899:1998#ATTACTCG_GGCTCTGA/2", "", underscored},
+			Metadata{
+				Type:       PreCasava,
+				Instrument: "FCC4T93ACXX",
+				Run:        -1,
+				Lane:       2,
+				Tile:       1101,
+				Coordinate: Coordinate{1899, 1998},
+				Mate:       2,
+				BadRead:    false,
+				Multiplex:  Multiplex{Index: -1, Tag: "ATTACTCG_GGCTCTGA"},
 			},
 		},
 	} {

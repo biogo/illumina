@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/biogo/biogo/alphabet"
+	"github.com/biogo/biogo/seq"
 )
 
 var (
@@ -75,11 +76,15 @@ type Metadata struct {
 // formats.
 func Parse(r Interface) (Metadata, error) {
 	name := r.Name()
+	var alpha alphabet.Alphabet = alphabet.DNA
+	if a, ok := r.(seq.Alphabeter); ok {
+		alpha = a.Alphabet()
+	}
 	if strings.Index(name, "#") >= 0 {
-		return preCasava(name)
+		return preCasava(name, alpha)
 	}
 	desc := r.Description()
-	return casava(name, desc)
+	return casava(name, desc, alpha)
 }
 
 func mustAtoi(s string) int {
@@ -101,9 +106,9 @@ func atob(s string) (int8, error) {
 	return int8(i), err
 }
 
-func tagOk(tag string) bool {
+func tagOk(tag string, alpha alphabet.Alphabet) bool {
 	for _, r := range tag {
-		if !alphabet.DNA.IsValid(alphabet.Letter(r)) {
+		if !alpha.IsValid(alphabet.Letter(r)) {
 			return false
 		}
 	}
@@ -120,7 +125,7 @@ func tagOk(tag string) bool {
 //  #0 				index number for a multiplexed sample (0 for no indexing)
 //  /1 				the member of a pair, /1 or /2 (paired-end or mate-pair reads only)
 func preCasavaSep(r rune) bool { return r == ':' || r == '#' || r == '/' }
-func preCasava(name string) (m Metadata, err error) {
+func preCasava(name string, alpha alphabet.Alphabet) (m Metadata, err error) {
 	f := strings.FieldsFunc(name, preCasavaSep)
 	if len(f) < 6 {
 		return Metadata{}, ErrBadIdentifer
@@ -142,7 +147,7 @@ func preCasava(name string) (m Metadata, err error) {
 	}
 	m.Multiplex.Index, err = atob(f[5])
 	if err != nil {
-		if tagOk(f[5]) {
+		if tagOk(f[5], alpha) {
 			err = nil
 			m.Multiplex.Tag = f[5]
 			m.Multiplex.Index = -1
@@ -170,13 +175,13 @@ func preCasava(name string) (m Metadata, err error) {
 // 18	 	0 when none of the control bits are on, otherwise it is an even number
 // ATCACG 	index sequence
 func casavaSep(r rune) bool { return r == ':' }
-func casava(name, desc string) (m Metadata, err error) {
+func casava(name, desc string, alpha alphabet.Alphabet) (m Metadata, err error) {
 	nf := strings.FieldsFunc(name, casavaSep)
 	df := strings.FieldsFunc(desc, casavaSep)
 	if !(len(nf) == 7 && (len(df) == 4 || desc == "")) {
 		return Metadata{}, ErrBadIdentifer
 	}
-	if len(df) == 4 && !tagOk(df[3]) {
+	if len(df) == 4 && !tagOk(df[3], alpha) {
 		return Metadata{}, ErrBadTag
 	}
 	defer func() {
